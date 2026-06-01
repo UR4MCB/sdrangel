@@ -16,11 +16,19 @@ if(UNIX AND NOT APPLE)
         pkg_check_modules(FOBOS_REGULAR_PC QUIET libfobos)
     endif()
 
+    set(FOBOS_LINUX_BUNDLED_SDR_DIR "${CMAKE_SOURCE_DIR}/external/linux/fobos-agile")
+    set(FOBOS_LINUX_BUNDLED_REGULAR_DIR "${CMAKE_SOURCE_DIR}/external/linux/fobos-regular")
+
     set(FOBOS_SDR_INCLUDE_DIR "${FOBOS_SDR_INCLUDE_DIR}" CACHE PATH "Fobos SDR Agile include directory")
     set(FOBOS_SDR_LIBRARY "${FOBOS_SDR_LIBRARY}" CACHE FILEPATH "Fobos SDR Agile runtime library")
     set(FOBOS_REGULAR_INCLUDE_DIR "${FOBOS_REGULAR_INCLUDE_DIR}" CACHE PATH "Fobos SDR regular include directory")
     set(FOBOS_REGULAR_LIBRARY "${FOBOS_REGULAR_LIBRARY}" CACHE FILEPATH "Fobos SDR regular runtime library")
 
+    # Resolution order:
+    # 1. Explicit CMake cache variables.
+    # 2. Developer environment variables.
+    # 3. Bundled Linux runtime package from external/linux.
+    # 4. pkg-config fallback.
     if(NOT FOBOS_SDR_INCLUDE_DIR AND DEFINED ENV{FOBOS_SDR_DIR})
         set(FOBOS_SDR_INCLUDE_DIR "$ENV{FOBOS_SDR_DIR}/include" CACHE PATH "Fobos SDR Agile include directory" FORCE)
     endif()
@@ -33,6 +41,20 @@ if(UNIX AND NOT APPLE)
     endif()
     if(NOT FOBOS_REGULAR_LIBRARY AND DEFINED ENV{FOBOS_DIR})
         set(FOBOS_REGULAR_LIBRARY "$ENV{FOBOS_DIR}/lib/libfobos.so" CACHE FILEPATH "Fobos SDR regular runtime library" FORCE)
+    endif()
+
+    if(NOT FOBOS_SDR_INCLUDE_DIR AND EXISTS "${FOBOS_LINUX_BUNDLED_SDR_DIR}/include/fobos_sdr.h")
+        set(FOBOS_SDR_INCLUDE_DIR "${FOBOS_LINUX_BUNDLED_SDR_DIR}/include" CACHE PATH "Fobos SDR Agile include directory" FORCE)
+    endif()
+    if(NOT FOBOS_SDR_LIBRARY AND EXISTS "${FOBOS_LINUX_BUNDLED_SDR_DIR}/lib/libfobos_sdr.so")
+        set(FOBOS_SDR_LIBRARY "${FOBOS_LINUX_BUNDLED_SDR_DIR}/lib/libfobos_sdr.so" CACHE FILEPATH "Fobos SDR Agile runtime library" FORCE)
+    endif()
+
+    if(NOT FOBOS_REGULAR_INCLUDE_DIR AND EXISTS "${FOBOS_LINUX_BUNDLED_REGULAR_DIR}/include/fobos.h")
+        set(FOBOS_REGULAR_INCLUDE_DIR "${FOBOS_LINUX_BUNDLED_REGULAR_DIR}/include" CACHE PATH "Fobos SDR regular include directory" FORCE)
+    endif()
+    if(NOT FOBOS_REGULAR_LIBRARY AND EXISTS "${FOBOS_LINUX_BUNDLED_REGULAR_DIR}/lib/libfobos.so")
+        set(FOBOS_REGULAR_LIBRARY "${FOBOS_LINUX_BUNDLED_REGULAR_DIR}/lib/libfobos.so" CACHE FILEPATH "Fobos SDR regular runtime library" FORCE)
     endif()
 
     if(NOT FOBOS_SDR_INCLUDE_DIR AND FOBOS_SDR_PC_INCLUDE_DIRS)
@@ -173,9 +195,25 @@ if(WIN32)
         COMMENT "Copying Fobos SDR regular runtime DLL"
     )
 
-
     install(FILES "${FOBOS_SDR_DLL_DIR}/fobos_sdr.dll" DESTINATION ${INSTALL_BIN_DIR})
     install(FILES "${FOBOS_REGULAR_DLL_DIR}/fobos.dll" DESTINATION ${INSTALL_BIN_DIR})
+elseif(UNIX AND NOT APPLE)
+    # Make Linux developer/test builds runnable without manual LD_LIBRARY_PATH setup.
+    add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${FOBOS_SDR_LIBRARY}"
+            "${CMAKE_BINARY_DIR}/libfobos_sdr.so"
+        COMMENT "Copying Fobos SDR Agile runtime library"
+    )
+    add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${FOBOS_REGULAR_LIBRARY}"
+            "${CMAKE_BINARY_DIR}/libfobos.so"
+        COMMENT "Copying Fobos SDR regular runtime library"
+    )
+
+    install(FILES "${FOBOS_SDR_LIBRARY}" DESTINATION ${INSTALL_BIN_DIR})
+    install(FILES "${FOBOS_REGULAR_LIBRARY}" DESTINATION ${INSTALL_BIN_DIR})
 endif()
 
 install(TARGETS ${TARGET_NAME} DESTINATION ${INSTALL_FOLDER})

@@ -8,6 +8,7 @@
 
 #include <QDebug>
 #include <QDateTime>
+#include <QCoreApplication>
 #include <QStringList>
 #include <QLibrary>
 #include <QByteArray>
@@ -80,6 +81,14 @@ namespace
         QStringList candidates;
         const QString libName = QString::fromLatin1(name ? name : "");
 
+        // First try the SDRangel executable directory. CMake copies bundled
+        // Fobos Linux runtime libraries there for out-of-box test builds.
+        const QString appDir = QCoreApplication::applicationDirPath();
+        if (!appDir.isEmpty() && !libName.isEmpty()) {
+            candidates << (appDir + QStringLiteral("/") + libName);
+        }
+
+        // Then try explicit developer environment paths.
         if (libName.contains(QStringLiteral("fobos_sdr"))) {
             const QString envPath = linuxRuntimeCandidate("FOBOS_SDR_DIR", "libfobos_sdr.so");
             if (!envPath.isEmpty()) { candidates << envPath; }
@@ -90,7 +99,10 @@ namespace
             if (!envPath.isEmpty()) { candidates << envPath; }
         }
 
+        // Finally rely on the system dynamic loader search path.
         candidates << libName;
+
+        candidates.removeDuplicates();
 
         for (const QString& candidate : candidates) {
             QLibrary* lib = new QLibrary(candidate);

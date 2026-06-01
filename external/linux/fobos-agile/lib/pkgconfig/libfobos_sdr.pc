@@ -1,0 +1,11 @@
+prefix=/home/ut2um/dev/fobos_agile
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: RigExpert Fobos SDR Agile Library
+Description: C Utility Library
+Version: 
+Cflags: -I${includedir}/ 
+Libs: -L${libdir} -lfobos_sdr
+Libs.private: -lusb-1.0 
